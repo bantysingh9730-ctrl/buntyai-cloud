@@ -13,28 +13,37 @@ st.set_page_config(
 
 st.title("🎬 BuntyAI")
 st.subheader("AI Video Clipper")
-st.write("Paste a link to your own video or a video you have permission to use.")
+st.write("Paste a YouTube link or upload your own video file.")
 
-url = st.text_input(
-    "YouTube Video URL",
-    placeholder="Paste your video link here..."
-)
+# Option choose karne ke liye
+upload_option = st.radio("Choose input method:", ["YouTube Link", "Upload Video File"])
+
+url = ""
+uploaded_file = None
+
+if upload_option == "YouTube Link":
+    url = st.text_input("YouTube Video URL", placeholder="Paste your video link here...")
+else:
+    uploaded_file = st.file_uploader("Upload MP4 Video", type=["mp4", "mov", "mkv"])
 
 clip_count = st.selectbox("Number of clips", [3, 5, 10])
 clip_length = st.selectbox("Clip length (seconds)", [20, 30, 45, 60])
 
 if st.button("🚀 Generate Clips", use_container_width=True):
 
-    if not url.strip():
-        st.error("Please enter a video URL.")
+    folder = tempfile.mkdtemp()
+    source = ""
 
-    else:
-        try:
-            with st.spinner("Processing your video..."):
+    try:
+        with st.spinner("Processing your video..."):
 
-                folder = tempfile.mkdtemp()
+            # Agar user ne YouTube link diya hai
+            if upload_option == "YouTube Link":
+                if not url.strip():
+                    st.error("Please enter a video URL.")
+                    st.stop()
+
                 output = os.path.join(folder, "source.%(ext)s")
-
                 options = {
                     "format": "best[ext=mp4][height<=720]/best[ext=mp4]/best",
                     "outtmpl": output,
@@ -53,64 +62,68 @@ if st.button("🚀 Generate Clips", use_container_width=True):
                     info = ydl.extract_info(url, download=True)
 
                 files = glob.glob(os.path.join(folder, "source.*"))
-
                 if not files:
-                    raise Exception("Video file was not created.")
-
+                    raise Exception("Video file could not be downloaded due to YouTube restrictions.")
                 source = files[0]
                 duration = info.get("duration") or 0
 
-                if duration < clip_length:
-                    raise Exception("Video is shorter than selected clip length.")
+            # Agar user ne file upload ki hai
+            else:
+                if uploaded_file is None:
+                    st.error("Please upload a video file.")
+                    st.stop()
+                
+                source = os.path.join(folder, "uploaded_source.mp4")
+                with open(source, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                
+                # FFprobe / ffmpeg se duration nikalna padega uploaded file ki
+                import json
+                probe_cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", source]
+                result = subprocess.run(probe_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                meta = json.loads(result.stdout.decode("utf-8"))
+                duration = float(meta["format"]["duration"])
 
-                available = duration - clip_length
-                actual_count = min(clip_count, int(duration // clip_length))
+            if duration < clip_length:
+                raise Exception("Video is shorter than selected clip length.")
 
-                st.success("Video downloaded! Creating clips...")
+            available = duration - clip_length
+            actual_count = min(clip_count, int(duration // clip_length))
 
-                for i in range(actual_count):
+            st.success("Video ready! Creating clips...")
 
-                    start = int(i * available / max(1, actual_count - 1)) if actual_count > 1 else 0
+            for i in range(actual_count):
+                start = int(i * available / max(1, actual_count - 1)) if actual_count > 1 else 0
+                target = os.path.join(folder, f"BuntyAI_clip_{i+1}.mp4")
 
-                    target = os.path.join(
-                        folder,
-                        f"BuntyAI_clip_{i+1}.mp4"
+                command = [
+                    "ffmpeg",
+                    "-y",
+                    "-ss", str(start),
+                    "-i", source,
+                    "-t", str(clip_length),
+                    "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280",
+                    "-c:v", "libx264",
+                    "-preset", "ultrafast",
+                    "-c:a", "aac",
+                    "-movflags", "+faststart",
+                    target
+                ]
+
+                subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+
+                with open(target, "rb") as video:
+                    st.download_button(
+                        f"⬇️ Download Clip {i+1}",
+                        video.read(),
+                        file_name=f"BuntyAI_clip_{i+1}.mp4",
+                        mime="video/mp4",
+                        key=f"clip_{i+1}"
                     )
 
-                    command = [
-                        "ffmpeg",
-                        "-y",
-                        "-ss", str(start),
-                        "-i", source,
-                        "-t", str(clip_length),
-                        "-vf",
-                        "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280",
-                        "-c:v", "libx264",
-                        "-preset", "ultrafast",
-                        "-c:a", "aac",
-                        "-movflags", "+faststart",
-                        target
-                    ]
+            st.success("Your MP4 clips are ready!")
 
-                    subprocess.run(
-                        command,
-                        check=True,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.PIPE
-                    )
-
-                    with open(target, "rb") as video:
-                        st.download_button(
-                            f"⬇️ Download Clip {i+1}",
-                            video.read(),
-                            file_name=f"BuntyAI_clip_{i+1}.mp4",
-                            mime="video/mp4",
-                            key=f"clip_{i+1}"
-                        )
-
-                st.success("Your MP4 clips are ready!")
-
-        except Exception as e:
-            st.error(f"Processing error: {e}")
+    except Exception as e:
+        st.error(f"Processing error: {e}")
 
 st.caption("BuntyAI | Free Video Clipper")
