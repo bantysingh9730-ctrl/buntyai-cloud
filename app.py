@@ -38,13 +38,13 @@ if st.button("🚀 Generate Clips", use_container_width=True):
                 output = os.path.join(folder, "source.%(ext)s")
 
                 options = {
-                    "format": "best",
-                    "outtmpl": output,
-                    "noplaylist": True,
-                    "quiet": True,
-                    "max_filesize": 500 * 1024 * 1024,
-                }
-"extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+    "format": "best",
+    "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+    "outtmpl": output,
+    "noplaylist": True,
+    "quiet": True,
+    "max_filesize": 500 * 1024 * 1024,
+}
                 with yt_dlp.YoutubeDL(options) as ydl:
                     info = ydl.extract_info(url, download=True)
 
