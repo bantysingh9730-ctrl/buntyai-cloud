@@ -1,4 +1,5 @@
 streamlit
-yt-dlp
+yt-dlp[default]
 imageio-ffmpeg
 youtube-transcript-api
+
