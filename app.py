@@ -39,7 +39,6 @@ if st.button("🚀 Generate Clips", use_container_width=True):
 
                 options = {
     "format": "best",
-    "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
     "outtmpl": output,
     "noplaylist": True,
     "quiet": True,
