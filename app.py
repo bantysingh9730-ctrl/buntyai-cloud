@@ -38,7 +38,7 @@ if st.button("🚀 Generate Clips", use_container_width=True):
                 output = os.path.join(folder, "source.%(ext)s")
 
                 options = {
-    "format": "best",
+    "format": "bestvideo+bestaudio/best",
     "outtmpl": output,
     "noplaylist": True,
     "quiet": True,
