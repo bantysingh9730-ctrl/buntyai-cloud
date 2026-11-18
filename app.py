@@ -1,7 +1,5 @@
-
 import streamlit as st
 import yt_dlp
-import imageio_ffmpeg
 import subprocess
 import os
 import tempfile
@@ -38,12 +36,19 @@ if st.button("🚀 Generate Clips", use_container_width=True):
                 output = os.path.join(folder, "source.%(ext)s")
 
                 options = {
-    "format": "bestvideo+bestaudio/best",
-    "outtmpl": output,
-    "noplaylist": True,
-    "quiet": True,
-    "max_filesize": 500 * 1024 * 1024,
-}
+                    "format": "best[ext=mp4][height<=720]/best[ext=mp4]/best",
+                    "outtmpl": output,
+                    "noplaylist": True,
+                    "quiet": True,
+                    "max_filesize": 500 * 1024 * 1024,
+                    "js_runtimes": {"node": {}},
+                    "extractor_args": {
+                        "youtube": {
+                            "player_client": ["android", "ios"],
+                        }
+                    },
+                }
+
                 with yt_dlp.YoutubeDL(options) as ydl:
                     info = ydl.extract_info(url, download=True)
 
@@ -57,8 +62,6 @@ if st.button("🚀 Generate Clips", use_container_width=True):
 
                 if duration < clip_length:
                     raise Exception("Video is shorter than selected clip length.")
-
-                ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
 
                 available = duration - clip_length
                 actual_count = min(clip_count, int(duration // clip_length))
@@ -75,7 +78,7 @@ if st.button("🚀 Generate Clips", use_container_width=True):
                     )
 
                     command = [
-                        ffmpeg,
+                        "ffmpeg",
                         "-y",
                         "-ss", str(start),
                         "-i", source,
